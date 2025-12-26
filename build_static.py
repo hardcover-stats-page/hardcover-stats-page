@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
 """
-Static build script for GitHub Pages.
+Static build script for Hardcover dashboard (GitHub Pages).
 
-Output:
-  docs/reading/index.html
-  docs/static/*   (copied from ./static/*)
+Outputs:
+  - docs/reading/index.html
+  - docs/static/*  (copied from ./static/*)
 
-Env required:
+Required env:
   HARDCOVER_API_TOKEN
 
-Optional:
+Optional env:
   CACHE_PATH (default: .cache/hardcover_cache.json)
   CACHE_TTL_SECONDS (default: 900)
   NOCACHE (default: 0)
-  DEBUG_DUMP (default: 0)  -> if 1, writes .debug/hardcover_raw.json
+  DEBUG_DUMP (default: 0)            -> writes .debug/hardcover_raw.json
+  DEBUG_TO_DOCS (default: 0)         -> also writes docs/debug.json (WARNING: exposes your data publicly)
 """
 
 import json
 import os
 import shutil
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from statistics import median
 from typing import Any, Dict, List, Optional, Tuple
@@ -57,12 +58,10 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
     s2 = str(s).strip()
-    # ISO with Z
     try:
         return datetime.fromisoformat(s2.replace("Z", "+00:00"))
     except Exception:
         pass
-    # fallback
     try:
         return datetime.strptime(s2[:10], "%Y-%m-%d")
     except Exception:
@@ -79,9 +78,7 @@ def _days_between(start: Optional[datetime], end: Optional[datetime]) -> Optiona
 
 
 def _rating_to_stars(rating: Any) -> Optional[int]:
-    """
-    Hardcover may return 1-5 or 0-10. Map to 1-5.
-    """
+    # Hardcover may return 1-5 or 0-10
     if rating is None:
         return None
     try:
@@ -134,15 +131,16 @@ def _normalize_me(me_raw: Any) -> Dict[str, Any]:
 
 
 # =========================
-# THIS IS THE IMPORTANT FIX
+# KEY: pick best read record
 # =========================
 def _pick_read_record(user_book_reads: Any) -> Dict[str, Any]:
     """
-    Hardcover returns user_book_reads as a list. Picking index 0 is often wrong
-    (re-reads, old entries, etc.).
+    Picks the read record that most likely represents the current progress.
 
-    We pick the record with the highest progress.
-    If progress is missing everywhere, we fall back to the last element.
+    Strategy:
+      1) choose dict entries only
+      2) prefer record with highest 'progress'
+      3) if all progress are 0/None, fallback to last element
     """
     if not isinstance(user_book_reads, list) or not user_book_reads:
         return {}
@@ -150,13 +148,11 @@ def _pick_read_record(user_book_reads: Any) -> Dict[str, Any]:
     if not candidates:
         return {}
 
-    # Prefer highest progress
     candidates_sorted = sorted(candidates, key=lambda r: _safe_int(r.get("progress"), 0), reverse=True)
     best = candidates_sorted[0]
     if _safe_int(best.get("progress"), 0) > 0:
         return best
 
-    # fallback: last element (often newest)
     return candidates[-1]
 
 
@@ -169,7 +165,6 @@ def _build_currently(me: Dict[str, Any]) -> List[Dict[str, Any]]:
         pages = _safe_int(book.get("pages"))
         progress = _safe_int((r0 or {}).get("progress"))
 
-        # Whole numbers only (no decimals)
         pct = int(round((progress / pages) * 100)) if pages > 0 else None
 
         item = {
@@ -184,9 +179,7 @@ def _build_currently(me: Dict[str, Any]) -> List[Dict[str, Any]]:
             "rating_stars": _rating_to_stars((ub or {}).get("rating")),
             "started_at": (r0 or {}).get("started_at"),
             "finished_at": None,
-            "missing": [],  # filled below
         }
-
         item["missing"] = _missing_badges(item)
         out.append(item)
     return out
@@ -202,7 +195,6 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         slug = book.get("slug")
         cover = ((book.get("image") or {}).get("url"))
         pages = _safe_int(book.get("pages"))
-
         author = _author_names(book.get("contributions") or [])
 
         last_read = _parse_dt((ub or {}).get("last_read_date"))
@@ -232,7 +224,6 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "year": f_date.year,
             "month": f_date.month,
             "month_name": MONTH_NAMES_DE.get(f_date.month, f"Monat {f_date.month}"),
-            "missing": [],
         }
         item["missing"] = _missing_badges(item)
         finished.append(item)
@@ -334,6 +325,7 @@ def _copy_assets_to_docs() -> None:
     src = Path("static")
     dst = Path("docs") / "static"
     if not src.exists():
+        print("[WARN] ./static does not exist -> skipping asset copy")
         return
     if dst.exists():
         shutil.rmtree(dst)
@@ -355,14 +347,24 @@ def main() -> None:
     ttl = int(os.getenv("CACHE_TTL_SECONDS", "900"))
     nocache = os.getenv("NOCACHE", "0") == "1"
     debug_dump = os.getenv("DEBUG_DUMP", "0") == "1"
+    debug_to_docs = os.getenv("DEBUG_TO_DOCS", "0") == "1"
 
     data = fetch_hardcover_data(token, cache_path, ttl, nocache=nocache)
 
-    # OPTIONAL: write raw data so you can inspect where "progress" really is
     if debug_dump:
         Path(".debug").mkdir(exist_ok=True)
-        Path(".debug/hardcover_raw.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(".debug/hardcover_raw.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         print("[OK] wrote .debug/hardcover_raw.json")
+
+    if debug_to_docs:
+        # WARNING: This will be publicly accessible on GitHub Pages!
+        Path("docs").mkdir(exist_ok=True)
+        Path("docs/debug.json").write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print("[WARN] wrote docs/debug.json (public!)")
 
     me = _normalize_me(data.get("me"))
 
@@ -384,6 +386,8 @@ def main() -> None:
     goal_progress = _safe_int((g0 or {}).get("progress"))
     goal_pct = (goal_progress / goal_total * 100) if goal_total > 0 else None
 
+    build_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
     env = Environment(
         loader=FileSystemLoader("templates"),
         autoescape=select_autoescape(["html"]),
@@ -394,6 +398,7 @@ def main() -> None:
     month_of_year = today.month
 
     vm = {
+        "build": {"stamp": build_stamp},
         "me": {
             "username": me.get("username"),
             "name": me.get("name") or me.get("username"),
@@ -424,13 +429,11 @@ def main() -> None:
 
     out_html = tpl.render(**vm)
 
-    # Output for GitHub Pages: docs/reading/index.html
     out_dir = Path("docs") / "reading"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "index.html"
     out_file.write_text(out_html, encoding="utf-8")
 
-    # Copy static assets
     _copy_assets_to_docs()
 
     print(f"[OK] wrote static page: {out_file.resolve()}")
