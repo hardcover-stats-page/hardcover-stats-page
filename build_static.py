@@ -408,7 +408,7 @@ def main() -> None:
     out_html = tpl.render(**vm)
 
     # Ensure output path for GitHub Pages: docs/reading/index.html
-    out_dir = Path("docs") / "reading"
+    out_dir = Path("docs")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "index.html"
     out_file.write_text(out_html, encoding="utf-8")
