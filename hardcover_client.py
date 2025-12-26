@@ -38,7 +38,12 @@ def graphql(token: str, query: str, variables: Optional[Dict[str, Any]] = None) 
         "content-type": "application/json",
         "authorization": f"Bearer {token}",
     }
-    r = requests.post(HC_URL, headers=headers, json={"query": query, "variables": variables or {}}, timeout=30)
+    r = requests.post(
+        HC_URL,
+        headers=headers,
+        json={"query": query, "variables": variables or {}},
+        timeout=30,
+    )
     r.raise_for_status()
     data = r.json()
     if "errors" in data:
@@ -47,12 +52,16 @@ def graphql(token: str, query: str, variables: Optional[Dict[str, Any]] = None) 
 
 
 def fetch_hardcover_data(token: str, cache_path: str, ttl_seconds: int, nocache: bool) -> Dict[str, Any]:
+    # Local caching is useful; CI disables it via env (NOCACHE=1, TTL=0)
     if not nocache:
         cached = _read_cache(cache_path, ttl_seconds)
         if cached is not None:
             return cached
 
-    # NOTE: book.genres does not exist in your schema -> removed.
+    # NOTE:
+    # - currently_reading is NOT a user field; it's an alias on user_books (status_id=2)
+    # - recently_read is alias on user_books (status_id=3)
+    # - no book.genres in your schema -> omitted
     QUERY = """
     query GetReadingData {
       me {
@@ -69,12 +78,15 @@ def fetch_hardcover_data(token: str, cache_path: str, ttl_seconds: int, nocache:
           where: { status_id: { _eq: 2 } }
           order_by: { updated_at: desc }
         ) {
+          id
+          updated_at
           rating
           last_read_date
           user_book_reads {
             started_at
             progress
             finished_at
+            updated_at
           }
           book {
             title
@@ -89,6 +101,8 @@ def fetch_hardcover_data(token: str, cache_path: str, ttl_seconds: int, nocache:
           where: { status_id: { _eq: 3 } }
           order_by: { last_read_date: desc }
         ) {
+          id
+          updated_at
           rating
           has_review
           last_read_date
@@ -96,6 +110,7 @@ def fetch_hardcover_data(token: str, cache_path: str, ttl_seconds: int, nocache:
             started_at
             progress
             finished_at
+            updated_at
           }
           book {
             title
