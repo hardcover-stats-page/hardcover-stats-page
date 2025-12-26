@@ -3,7 +3,7 @@
 
 {% macro stars(n) -%}
   {% if n %}
-    <span class="stars">
+    <span class="stars" aria-label="{{n}} stars">
       {% for _ in range(n) %}★{% endfor %}
     </span>
   {% endif %}
@@ -11,7 +11,6 @@
 
 {% block content %}
 
-<!-- ================= HEADER ================= -->
 <header class="header">
   <div class="profile">
     {% if me.avatar %}
@@ -21,14 +20,15 @@
     {% endif %}
 
     <div class="profile-meta">
-      <div class="profile-name">{{ me.name }}</div>
+      <div class="profile-name">{{ me.name or "Reading Dashboard" }}</div>
       {% if me.username %}
-        <div class="muted">@{{ me.username }}</div>
+        <div class="muted">{{ me.username }}</div>
       {% endif %}
       {% if me.profile_url %}
-        <a class="link" href="{{ me.profile_url }}" target="_blank" rel="noreferrer">
-          Hardcover Profile
-        </a>
+        <a class="link" href="{{ me.profile_url }}" target="_blank" rel="noreferrer">Hardcover Profile</a>
+      {% endif %}
+      {% if me.cache_info %}
+        <div class="muted small">{{ me.cache_info }}</div>
       {% endif %}
     </div>
   </div>
@@ -36,16 +36,16 @@
   <div class="stats">
     <div class="card">
       <div class="label">Goal</div>
-      <div class="value">{{ stats.goal_progress }} / {{ stats.goal_total }}</div>
-      <div class="muted">{{ "%.1f"|format(stats.goal_pct) }}%</div>
+      <div class="value">{{ stats.goal_progress or 0 }} / {{ stats.goal_total or 0 }}</div>
+      <div class="muted">{{ "%.1f"|format(stats.goal_pct or 0) }}%</div>
     </div>
 
     <div class="card">
-      <div class="label">Avg / Median days</div>
-      <div class="value">{{ stats.avg_days }} / {{ stats.median_days }}</div>
+      <div class="label">Avg / Median days per book</div>
+      <div class="value">{{ stats.avg_days or "–" }} / {{ stats.median_days or "–" }}</div>
       <div class="muted">
         Monthly streak<br>
-        current {{ stats.streak_monthly_current }} · best {{ stats.streak_monthly_best }}
+        current {{ stats.streak_monthly_current or 0 }} · best {{ stats.streak_monthly_best or 0 }}
       </div>
     </div>
 
@@ -55,24 +55,24 @@
       <div class="muted">{{ totals.pages }} pages</div>
       {% if totals.missing_pages %}
         <div class="small muted">
-          Note: {{ totals.missing_pages }} book(s) without page data not counted.
+          Note: {{ totals.missing_pages }} book(s) without page data are not counted in pages.
         </div>
       {% endif %}
     </div>
 
     <div class="card">
-      <div class="label">Forecast ({{ stats.year }})</div>
-      <div class="value">~{{ stats.forecast_books }} books</div>
-      <div class="muted">~{{ stats.forecast_pages }} pages</div>
+      <div class="label">Forecast ({{ stats.year or "" }})</div>
+      <div class="value">~{{ stats.forecast_books or "–" }} books</div>
+      <div class="muted">~{{ stats.forecast_pages or "–" }} pages</div>
       <div class="small muted">
-        Ø {{ stats.pace_pages_per_day }} pages / day<br>
-        Ø {{ stats.pace_books_per_month }} books / month
+        Ø {{ stats.pace_pages_per_day or "–" }} pages / day<br>
+        Ø {{ stats.pace_books_per_month or "–" }} books / month
       </div>
     </div>
   </div>
 </header>
 
-<!-- ================= BOOKS PER YEAR ================= -->
+
 <section class="section">
   <h2>Books per Year</h2>
 
@@ -92,7 +92,7 @@
   </div>
 </section>
 
-<!-- ================= CURRENTLY READING ================= -->
+
 <section class="section">
   <h2>Currently Reading</h2>
 
@@ -129,8 +129,7 @@
               <div class="progressfill" style="width: {{ b.pct if b.pct is not none else 0 }}%"></div>
             </div>
             <div class="progressmeta">
-              {{ b.progress }} / {{ b.pages if b.pages else "?" }} pages ·
-              {{ b.pct if b.pct is not none else 0 }}%
+              {{ b.progress or 0 }} / {{ b.pages if b.pages else "?" }} pages · {{ b.pct if b.pct is not none else 0 }}%
             </div>
           </div>
         </div>
@@ -139,7 +138,7 @@
   </div>
 </section>
 
-<!-- ================= TIMELINE ================= -->
+
 <section class="section">
   <h2>Timeline</h2>
 
@@ -199,6 +198,7 @@
     </div>
   {% endfor %}
 </section>
+
 
 <footer class="footer muted">
   Build: {{ build.stamp }}
