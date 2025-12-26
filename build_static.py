@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """
-Builds a static Hardcover reading dashboard page for GitHub Pages.
+Static build script for GitHub Pages.
 
 Output:
-  docs/index.html
-Assets:
-  copy static/* -> docs/static/* (optional, can be done here too)
+  docs/reading/index.html
+  docs/static/*   (copied from ./static/*)
 
-Required env:
+Env required:
   HARDCOVER_API_TOKEN
 
-Optional env:
+Optional:
   CACHE_PATH (default: .cache/hardcover_cache.json)
   CACHE_TTL_SECONDS (default: 900)
   NOCACHE (default: 0)
+  DEBUG_DUMP (default: 0)  -> if 1, writes .debug/hardcover_raw.json
 """
 
+import json
 import os
 import shutil
 from datetime import date, datetime
@@ -56,12 +57,12 @@ def _parse_dt(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
     s2 = str(s).strip()
-    # ISO 8601 (with Z)
+    # ISO with Z
     try:
         return datetime.fromisoformat(s2.replace("Z", "+00:00"))
     except Exception:
         pass
-    # fallback: YYYY-MM-DD
+    # fallback
     try:
         return datetime.strptime(s2[:10], "%Y-%m-%d")
     except Exception:
@@ -79,7 +80,7 @@ def _days_between(start: Optional[datetime], end: Optional[datetime]) -> Optiona
 
 def _rating_to_stars(rating: Any) -> Optional[int]:
     """
-    Hardcover sometimes returns 1-5 or 0-10. Map to 1-5 stars.
+    Hardcover may return 1-5 or 0-10. Map to 1-5.
     """
     if rating is None:
         return None
@@ -101,17 +102,6 @@ def _author_names(contribs: List[Dict[str, Any]]) -> str:
         if a.get("name"):
             names.append(a["name"])
     return ", ".join(names) if names else "Unknown"
-
-
-def _extract_genre(book: Dict[str, Any]) -> Optional[str]:
-    genres = book.get("genres") or []
-    if isinstance(genres, list) and genres:
-        g0 = genres[0]
-        if isinstance(g0, dict):
-            return g0.get("name")
-        if isinstance(g0, str):
-            return g0
-    return None
 
 
 def _book_url(title: Optional[str], slug: Optional[str]) -> Optional[str]:
@@ -143,14 +133,31 @@ def _normalize_me(me_raw: Any) -> Dict[str, Any]:
     return {}
 
 
+# =========================
+# THIS IS THE IMPORTANT FIX
+# =========================
 def _pick_read_record(user_book_reads: Any) -> Dict[str, Any]:
     """
-    Hardcover returns user_book_reads as list. We pick the first item.
+    Hardcover returns user_book_reads as a list. Picking index 0 is often wrong
+    (re-reads, old entries, etc.).
+
+    We pick the record with the highest progress.
+    If progress is missing everywhere, we fall back to the last element.
     """
-    if isinstance(user_book_reads, list) and user_book_reads:
-        if isinstance(user_book_reads[0], dict):
-            return user_book_reads[0]
-    return {}
+    if not isinstance(user_book_reads, list) or not user_book_reads:
+        return {}
+    candidates = [x for x in user_book_reads if isinstance(x, dict)]
+    if not candidates:
+        return {}
+
+    # Prefer highest progress
+    candidates_sorted = sorted(candidates, key=lambda r: _safe_int(r.get("progress"), 0), reverse=True)
+    best = candidates_sorted[0]
+    if _safe_int(best.get("progress"), 0) > 0:
+        return best
+
+    # fallback: last element (often newest)
+    return candidates[-1]
 
 
 def _build_currently(me: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -161,6 +168,8 @@ def _build_currently(me: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         pages = _safe_int(book.get("pages"))
         progress = _safe_int((r0 or {}).get("progress"))
+
+        # Whole numbers only (no decimals)
         pct = int(round((progress / pages) * 100)) if pages > 0 else None
 
         item = {
@@ -170,13 +179,14 @@ def _build_currently(me: Dict[str, Any]) -> List[Dict[str, Any]]:
             "pages": pages if pages > 0 else None,
             "progress": progress,
             "pct": pct,
-            "genre": _extract_genre(book),
             "slug": book.get("slug"),
             "hardcover_book_url": _book_url(book.get("title"), book.get("slug")),
             "rating_stars": _rating_to_stars((ub or {}).get("rating")),
             "started_at": (r0 or {}).get("started_at"),
             "finished_at": None,
+            "missing": [],  # filled below
         }
+
         item["missing"] = _missing_badges(item)
         out.append(item)
     return out
@@ -192,7 +202,7 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         slug = book.get("slug")
         cover = ((book.get("image") or {}).get("url"))
         pages = _safe_int(book.get("pages"))
-        genre = _extract_genre(book)
+
         author = _author_names(book.get("contributions") or [])
 
         last_read = _parse_dt((ub or {}).get("last_read_date"))
@@ -201,7 +211,6 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         started_at = _parse_dt((r0 or {}).get("started_at"))
         finished_at = _parse_dt((r0 or {}).get("finished_at")) or last_read
         if not finished_at:
-            # skip if we cannot place in timeline
             continue
 
         duration_days = _days_between(started_at, finished_at)
@@ -214,7 +223,6 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "author": author,
             "cover": cover,
             "pages": pages if pages > 0 else None,
-            "genre": genre,
             "slug": slug,
             "hardcover_book_url": _book_url(title, slug),
             "rating_stars": rating_stars,
@@ -224,6 +232,7 @@ def _build_finished(recently_raw: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "year": f_date.year,
             "month": f_date.month,
             "month_name": MONTH_NAMES_DE.get(f_date.month, f"Monat {f_date.month}"),
+            "missing": [],
         }
         item["missing"] = _missing_badges(item)
         finished.append(item)
@@ -345,8 +354,16 @@ def main() -> None:
     cache_path = os.getenv("CACHE_PATH", ".cache/hardcover_cache.json")
     ttl = int(os.getenv("CACHE_TTL_SECONDS", "900"))
     nocache = os.getenv("NOCACHE", "0") == "1"
+    debug_dump = os.getenv("DEBUG_DUMP", "0") == "1"
 
     data = fetch_hardcover_data(token, cache_path, ttl, nocache=nocache)
+
+    # OPTIONAL: write raw data so you can inspect where "progress" really is
+    if debug_dump:
+        Path(".debug").mkdir(exist_ok=True)
+        Path(".debug/hardcover_raw.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("[OK] wrote .debug/hardcover_raw.json")
+
     me = _normalize_me(data.get("me"))
 
     now_year = date.today().year
@@ -407,17 +424,17 @@ def main() -> None:
 
     out_html = tpl.render(**vm)
 
-    # Ensure output path for GitHub Pages: docs/index.html
-    out_dir = Path("docs")
+    # Output for GitHub Pages: docs/reading/index.html
+    out_dir = Path("docs") / "reading"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "index.html"
     out_file.write_text(out_html, encoding="utf-8")
 
-    # Copy static assets to docs/static
+    # Copy static assets
     _copy_assets_to_docs()
 
     print(f"[OK] wrote static page: {out_file.resolve()}")
-    print(f"[OK] open locally: python -m http.server -d docs 8000  -> http://localhost:8000/")
+    print("[OK] local test: python -m http.server -d docs 8000 -> http://localhost:8000/reading/")
 
 
 if __name__ == "__main__":
