@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <title>{% block title %}Reading Dashboard{% endblock %}</title>
 
-  <!-- Org Pages: immer absolut -->
-  <link rel="stylesheet" href="/static/styles.css" />
+  {# base_path ist z.B. "/" (Org Pages) oder "/hardcover-stats-page/" (Project Pages) #}
+  <link rel="stylesheet" href="{{ base_path }}static/styles.css" />
 </head>
 <body>
   <div class="page">
