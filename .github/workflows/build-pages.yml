@@ -33,25 +33,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build static site
+      - name: Build static site (no cache in CI)
         env:
           HARDCOVER_API_TOKEN: ${{ secrets.HARDCOVER_API_TOKEN }}
           NOCACHE: "1"
           CACHE_TTL_SECONDS: "0"
-          DEBUG_DUMP: "0"
-          DEBUG_TO_DOCS: "0"  # set to "1" only temporarily (would publish your raw data)
         run: |
           rm -rf .cache
           python build_static.py
 
-          # ensure assets exist in docs/static
-          rm -rf docs/static
-          mkdir -p docs/static
-          cp -r static/* docs/static/
-
           echo "---- docs tree ----"
           find docs -maxdepth 3 -type f | sort
           test -f docs/reading/index.html
+          test -f docs/build.json
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
