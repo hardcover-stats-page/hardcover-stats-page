@@ -1,11 +1,12 @@
 :root{
   --bg:#0b0f12;
   --panel:#111820;
+  --panel2:#0f151c;
   --text:#e7f0f6;
   --muted:#9bb0bf;
-  --accent:#27d07d;
+  --accent:#27d07d;   /* green */
   --warn:#f0c24b;
-  --line:rgba(39,208,125,0.55);
+  --line:rgba(39,208,125,0.70); /* stronger green line */
   --shadow:0 10px 30px rgba(0,0,0,.35);
   --radius:16px;
 }
@@ -14,9 +15,10 @@
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  background: radial-gradient(1200px 700px at 20% 10%, rgba(39,208,125,0.12), transparent 60%),
-              radial-gradient(900px 500px at 90% 20%, rgba(0,140,255,0.10), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(1200px 700px at 20% 10%, rgba(39,208,125,0.12), transparent 60%),
+    radial-gradient(900px 500px at 90% 20%, rgba(0,140,255,0.10), transparent 55%),
+    var(--bg);
   color:var(--text);
 }
 
@@ -53,10 +55,11 @@ a{color:inherit;text-decoration:none}
 .avatar.placeholder{
   display:flex;align-items:center;justify-content:center;
   background: rgba(255,255,255,0.08);
-  font-weight:700;
+  font-weight:800;
+  font-size:20px;
 }
 
-.profile-name{font-size:18px;font-weight:800}
+.profile-name{font-size:18px;font-weight:900}
 .profile-meta{display:flex;flex-direction:column;gap:2px}
 
 .stats{display:flex;gap:12px;flex-wrap:wrap}
@@ -71,8 +74,9 @@ a{color:inherit;text-decoration:none}
 .card.empty{padding:18px}
 
 .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-.value{font-size:26px;font-weight:900;margin-top:6px}
+.value{font-size:26px;font-weight:1000;margin-top:6px}
 .muted{color:var(--muted)}
+.small{font-size:12px}
 
 .section{margin-top:22px}
 h2{margin:0 0 12px 0;font-size:18px}
@@ -101,13 +105,13 @@ h2{margin:0 0 12px 0;font-size:18px}
   width:100%;height:100%;
   display:flex;align-items:center;justify-content:center;
   color:rgba(255,255,255,0.7);
-  font-weight:700;
+  font-weight:800;
   font-size:12px;
 }
 .nocover.small{border-radius:10px}
 
 .bookmeta{display:flex;flex-direction:column;gap:6px;min-width:0}
-.title{font-weight:900;line-height:1.15}
+.title{font-weight:1000;line-height:1.15}
 .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .chip{
   font-size:12px;
@@ -117,15 +121,18 @@ h2{margin:0 0 12px 0;font-size:18px}
   background: rgba(0,0,0,0.18);
 }
 .chip.warn{border-color: rgba(240,194,75,0.6); color: rgba(240,194,75,0.95);}
+
 .stars{color: var(--warn); font-size:13px; letter-spacing:1px}
 
+/* bar chart */
 .barchart{display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .barrow{display:grid;grid-template-columns: 56px 1fr 36px;gap:10px;align-items:center}
-.barlabel{color:var(--muted);font-weight:700}
+.barlabel{color:var(--muted);font-weight:800}
 .barwrap{height:12px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden;border:1px solid rgba(255,255,255,0.10)}
 .bar{height:100%;background: linear-gradient(90deg, rgba(39,208,125,0.95), rgba(0,180,255,0.60));}
-.barcount{text-align:right;color:var(--muted);font-weight:800}
+.barcount{text-align:right;color:var(--muted);font-weight:900}
 
+/* timeline */
 .yearbox{
   margin-top:12px;
   padding:14px;
@@ -136,7 +143,7 @@ h2{margin:0 0 12px 0;font-size:18px}
 }
 
 .yearhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
-.year{font-size:20px;font-weight:1000}
+.year{font-size:20px;font-weight:1100}
 
 .timeline{
   position:relative;
@@ -148,7 +155,7 @@ h2{margin:0 0 12px 0;font-size:18px}
   left:8px;
   top:0;
   bottom:0;
-  width:4px;               /* thicker */
+  width:6px;               /* thicker */
   border-radius:999px;
   background: var(--line);  /* green */
 }
@@ -163,7 +170,7 @@ h2{margin:0 0 12px 0;font-size:18px}
   background: rgba(11,15,18,0.88);
   border:1px solid rgba(255,255,255,0.08);
   backdrop-filter: blur(6px);
-  font-weight:900;
+  font-weight:1000;
 }
 
 .monthlist{display:flex;flex-direction:column;gap:10px;margin-top:10px}
@@ -194,6 +201,4 @@ h2{margin:0 0 12px 0;font-size:18px}
 }
 .rowcover img{width:100%;height:100%;object-fit:cover}
 
-.rowmeta{min-width:0;display:flex;flex-direction:column;gap:6px}
-
-.footer{margin-top:22px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08)}
+.rowmeta{min-width:0;display:flex;flex-direction:column;gap
