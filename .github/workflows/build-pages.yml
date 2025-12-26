@@ -42,10 +42,13 @@ jobs:
           rm -rf .cache
           python build_static.py
 
-          echo "---- docs tree ----"
-          find docs -maxdepth 3 -type f | sort
+          echo "---- sanity checks ----"
           test -f docs/reading/index.html
+          test -f docs/static/styles.css
           test -f docs/build.json
+
+          echo "---- build.json ----"
+          cat docs/build.json
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
