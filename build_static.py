@@ -3,7 +3,7 @@
 Builds a static Hardcover reading dashboard page for GitHub Pages.
 
 Output:
-  docs/reading/index.html
+  docs/index.html
 Assets:
   copy static/* -> docs/static/* (optional, can be done here too)
 
@@ -407,7 +407,7 @@ def main() -> None:
 
     out_html = tpl.render(**vm)
 
-    # Ensure output path for GitHub Pages: docs/reading/index.html
+    # Ensure output path for GitHub Pages: docs/index.html
     out_dir = Path("docs")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "index.html"
@@ -417,7 +417,7 @@ def main() -> None:
     _copy_assets_to_docs()
 
     print(f"[OK] wrote static page: {out_file.resolve()}")
-    print(f"[OK] open locally: python -m http.server -d docs 8000  -> http://localhost:8000/reading/")
+    print(f"[OK] open locally: python -m http.server -d docs 8000  -> http://localhost:8000/")
 
 
 if __name__ == "__main__":
